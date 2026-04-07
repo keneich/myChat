@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>myChat</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f2f5;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* 로그인 화면 */
+    #login-screen {
+      background: #fff;
+      border-radius: 16px;
+      padding: 48px 40px;
+      width: 360px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.1);
+      text-align: center;
+    }
+
+    #login-screen h1 {
+      font-size: 28px;
+      margin-bottom: 8px;
+      color: #1a1a2e;
+    }
+
+    #login-screen p {
+      color: #888;
+      margin-bottom: 28px;
+      font-size: 14px;
+    }
+
+    #nickname-input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      font-size: 16px;
+      outline: none;
+      transition: border-color .2s;
+    }
+
+    #nickname-input:focus { border-color: #4f46e5; }
+
+    #join-btn {
+      width: 100%;
+      margin-top: 14px;
+      padding: 13px;
+      background: #4f46e5;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background .2s;
+    }
+
+    #join-btn:hover { background: #4338ca; }
+
+    /* 채팅 화면 */
+    #chat-screen {
+      display: none;
+      width: 820px;
+      height: 90vh;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.1);
+      overflow: hidden;
+      flex-direction: row;
+    }
+
+    /* 사이드바 */
+    #sidebar {
+      width: 220px;
+      background: #1a1a2e;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      padding: 24px 16px;
+      flex-shrink: 0;
+    }
+
+    #sidebar h2 {
+      font-size: 20px;
+      margin-bottom: 4px;
+    }
+
+    #sidebar .subtitle {
+      font-size: 12px;
+      color: #aaa;
+      margin-bottom: 24px;
+    }
+
+    #sidebar h3 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #888;
+      margin-bottom: 10px;
+    }
+
+    /* 채팅 숨김 버튼 */
+    #sidebar {
+      position: relative;
+    }
+
+    #hide-btn {
+      position: absolute;
+      bottom: 20px;
+      left: 16px;
+      right: 16px;
+      padding: 10px;
+      background: rgba(255,255,255,.08);
+      color: #ccc;
+      border: 1px solid rgba(255,255,255,.15);
+      border-radius: 10px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background .2s, color .2s;
+      text-align: center;
+    }
+
+    #hide-btn:hover {
+      background: rgba(255,255,255,.18);
+      color: #fff;
+    }
+
+    /* 채팅 내용 숨김 상태 */
+    #messages.hidden .msg-bubble,
+    #messages.hidden .msg-nickname,
+    #messages.hidden .msg-time,
+    #messages.hidden .msg-system {
+      color: transparent;
+      background-color: #f0f2f5;
+      border-radius: 4px;
+      user-select: none;
+    }
+
+    #messages.hidden .msg-wrap.me .msg-bubble {
+      background-color: #f0f2f5;
+    }
+
+    #user-list { list-style: none; }
+
+    #user-list li {
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #user-list li::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      flex-shrink: 0;
+    }
+
+    /* 메인 채팅 영역 */
+    #chat-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #chat-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid #f0f0f0;
+      font-weight: 600;
+      color: #1a1a2e;
+      font-size: 16px;
+    }
+
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* 시스템 메시지 */
+    .msg-system {
+      text-align: center;
+      color: #999;
+      font-size: 13px;
+      padding: 4px 0;
+    }
+
+    /* 채팅 메시지 */
+    .msg-wrap {
+      display: flex;
+      flex-direction: column;
+      max-width: 70%;
+    }
+
+    .msg-wrap.me { align-self: flex-end; align-items: flex-end; }
+    .msg-wrap.other { align-self: flex-start; align-items: flex-start; }
+
+    .msg-nickname {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 4px;
+    }
+
+    .msg-bubble {
+      padding: 10px 14px;
+      border-radius: 16px;
+      font-size: 15px;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    .msg-wrap.me .msg-bubble {
+      background: #4f46e5;
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+
+    .msg-wrap.other .msg-bubble {
+      background: #f0f2f5;
+      color: #1a1a2e;
+      border-bottom-left-radius: 4px;
+    }
+
+    .msg-time {
+      font-size: 11px;
+      color: #bbb;
+      margin-top: 4px;
+    }
+
+    /* 입력창 */
+    #input-area {
+      padding: 16px 24px;
+      border-top: 1px solid #f0f0f0;
+      display: flex;
+      gap: 10px;
+    }
+
+    #msg-input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 2px solid #e0e0e0;
+      border-radius: 24px;
+      font-size: 15px;
+      outline: none;
+      transition: border-color .2s;
+    }
+
+    #msg-input:focus { border-color: #4f46e5; }
+
+    #send-btn {
+      padding: 12px 22px;
+      background: #4f46e5;
+      color: #fff;
+      border: none;
+      border-radius: 24px;
+      font-size: 15px;
+      cursor: pointer;
+      transition: background .2s;
+    }
+
+    #send-btn:hover { background: #4338ca; }
+
+    #connection-status {
+      font-size: 12px;
+      color: #f87171;
+      padding: 4px 24px 0;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 로그인 화면 -->
+  <div id="login-screen">
+    <h1>myChat</h1>
+    <p>닉네임을 입력하고 채팅방에 입장하세요</p>
+    <input id="nickname-input" type="text" placeholder="닉네임" maxlength="20" />
+    <button id="join-btn">입장하기</button>
+  </div>
+
+  <!-- 채팅 화면 -->
+  <div id="chat-screen">
+    <div id="sidebar">
+      <h2>myChat</h2>
+      <div class="subtitle">실시간 채팅</div>
+      <h3>접속자</h3>
+      <ul id="user-list"></ul>
+      <button id="hide-btn">블러블러</button>
+    </div>
+    <div id="chat-main">
+      <div id="chat-header">채팅방</div>
+      <div id="messages"></div>
+      <div id="connection-status"></div>
+      <div id="input-area">
+        <input id="msg-input" type="text" placeholder="메시지를 입력하세요..." maxlength="500" />
+        <button id="send-btn">전송</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let ws;
+    let myNickname = '';
+
+    const loginScreen = document.getElementById('login-screen');
+    const chatScreen = document.getElementById('chat-screen');
+    const nicknameInput = document.getElementById('nickname-input');
+    const joinBtn = document.getElementById('join-btn');
+    const messages = document.getElementById('messages');
+    const userList = document.getElementById('user-list');
+    const msgInput = document.getElementById('msg-input');
+    const sendBtn = document.getElementById('send-btn');
+    const statusEl = document.getElementById('connection-status');
+    const hideBtn = document.getElementById('hide-btn');
+
+    let isHidden = false;
+    hideBtn.addEventListener('click', () => {
+      isHidden = !isHidden;
+      messages.classList.toggle('hidden', isHidden);
+      hideBtn.textContent = isHidden ? '블러해제' : '블러블러';
+    });
+
+    // 입장
+    function join() {
+      const nickname = nicknameInput.value.trim();
+      if (!nickname) return;
+      myNickname = nickname;
+      connect();
+    }
+
+    joinBtn.addEventListener('click', join);
+    nicknameInput.addEventListener('keydown', e => { if (e.key === 'Enter') join(); });
+
+    // WebSocket 연결
+    function connect() {
+      const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(`${protocol}://${location.host}`);
+
+      ws.addEventListener('open', () => {
+        statusEl.textContent = '';
+        loginScreen.style.display = 'none';
+        chatScreen.style.display = 'flex';
+        ws.send(JSON.stringify({ type: 'join', nickname: myNickname }));
+        msgInput.focus();
+      });
+
+      ws.addEventListener('message', (e) => {
+        const msg = JSON.parse(e.data);
+
+        if (msg.type === 'system') {
+          appendSystem(msg.text);
+          updateUserList(msg.users);
+        } else if (msg.type === 'chat') {
+          appendChat(msg);
+        }
+      });
+
+      ws.addEventListener('close', () => {
+        statusEl.textContent = '연결이 끊겼습니다. 새로고침 해주세요.';
+      });
+
+      ws.addEventListener('error', () => {
+        statusEl.textContent = '서버에 연결할 수 없습니다.';
+      });
+    }
+
+    // 메시지 전송
+    function sendMessage() {
+      const text = msgInput.value.trim();
+      if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+      ws.send(JSON.stringify({ type: 'chat', text }));
+      msgInput.value = '';
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+    msgInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendMessage(); });
+
+    // 시스템 메시지 추가
+    function appendSystem(text) {
+      const div = document.createElement('div');
+      div.className = 'msg-system';
+      div.textContent = text;
+      messages.appendChild(div);
+      scrollToBottom();
+    }
+
+    // 채팅 메시지 추가
+    function appendChat(msg) {
+      const isMe = msg.nickname === myNickname;
+      const wrap = document.createElement('div');
+      wrap.className = `msg-wrap ${isMe ? 'me' : 'other'}`;
+
+      if (!isMe) {
+        const nick = document.createElement('div');
+        nick.className = 'msg-nickname';
+        nick.textContent = msg.nickname;
+        wrap.appendChild(nick);
+      }
+
+      const bubble = document.createElement('div');
+      bubble.className = 'msg-bubble';
+      bubble.textContent = msg.text;
+      wrap.appendChild(bubble);
+
+      const time = document.createElement('div');
+      time.className = 'msg-time';
+      time.textContent = msg.time;
+      wrap.appendChild(time);
+
+      messages.appendChild(wrap);
+      scrollToBottom();
+    }
+
+    // 접속자 목록 업데이트
+    function updateUserList(users) {
+      userList.innerHTML = '';
+      users.forEach(name => {
+        const li = document.createElement('li');
+        li.textContent = name;
+        userList.appendChild(li);
+      });
+    }
+
+    function scrollToBottom() {
+      messages.scrollTop = messages.scrollHeight;
+    }
+  </script>
+</body>
+</html>
