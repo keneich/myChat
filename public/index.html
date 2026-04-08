@@ -107,8 +107,26 @@
       white-space: nowrap;
     }
 
-    #hide-btn {
+    #clear-btn {
       margin-left: auto;
+      padding: 7px 16px;
+      background: rgba(239,68,68,.15);
+      color: #f87171;
+      border: 1px solid rgba(239,68,68,.3);
+      border-radius: 10px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background .2s, color .2s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    #clear-btn:hover {
+      background: rgba(239,68,68,.3);
+      color: #fff;
+    }
+
+    #hide-btn {
       padding: 7px 16px;
       background: rgba(255,255,255,.08);
       color: #ccc;
@@ -282,8 +300,10 @@
   <!-- 로그인 화면 -->
   <div id="login-screen">
     <h1>나 좋다고</h1>
-    <p>닉네임을 입력하고 채팅방에 입장하세요</p>
+    <p>닉네임과 입장 코드를 입력하세요</p>
     <input id="nickname-input" type="text" placeholder="닉네임" maxlength="20" />
+    <input id="code-input" type="text" placeholder="입장 코드" style="width:100%;padding:12px 16px;border:2px solid #e0e0e0;border-radius:10px;font-size:16px;outline:none;margin-top:10px;transition:border-color .2s;" />
+    <div id="login-error" style="color:#ef4444;font-size:13px;margin-top:8px;min-height:18px;"></div>
     <button id="join-btn">입장하기</button>
   </div>
 
@@ -293,6 +313,7 @@
       <h2>나 좋다고</h2>
       <h3>말해</h3>
       <ul id="user-list"></ul>
+      <button id="clear-btn">뿌앙</button>
       <button id="hide-btn">배불러</button>
     </div>
     <div id="chat-main">
@@ -312,6 +333,8 @@
     const loginScreen = document.getElementById('login-screen');
     const chatScreen = document.getElementById('chat-screen');
     const nicknameInput = document.getElementById('nickname-input');
+    const codeInput = document.getElementById('code-input');
+    const loginError = document.getElementById('login-error');
     const joinBtn = document.getElementById('join-btn');
     const messages = document.getElementById('messages');
     const userList = document.getElementById('user-list');
@@ -319,6 +342,12 @@
     const sendBtn = document.getElementById('send-btn');
     const statusEl = document.getElementById('connection-status');
     const hideBtn = document.getElementById('hide-btn');
+    const clearBtn = document.getElementById('clear-btn');
+
+    clearBtn.addEventListener('click', () => {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      ws.send(JSON.stringify({ type: 'clear' }));
+    });
 
     let isHidden = false;
     hideBtn.addEventListener('click', () => {
@@ -327,16 +356,32 @@
       hideBtn.textContent = isHidden ? '배고파' : '배불러';
     });
 
+    const REQUIRED_WORDS = ['오드리'];
+
     // 입장
     function join() {
       const nickname = nicknameInput.value.trim();
-      if (!nickname) return;
+      const codeWords = codeInput.value.trim().split(/\s+/);
+      loginError.textContent = '';
+
+      if (!nickname) {
+        loginError.textContent = '닉네임을 입력해주세요.';
+        return;
+      }
+
+      const missing = REQUIRED_WORDS.filter(w => !codeWords.includes(w));
+      if (missing.length > 0) {
+        loginError.textContent = '입장 코드가 올바르지 않습니다.';
+        return;
+      }
+
       myNickname = nickname;
       connect();
     }
 
     joinBtn.addEventListener('click', join);
     nicknameInput.addEventListener('keydown', e => { if (e.key === 'Enter') join(); });
+    codeInput.addEventListener('keydown', e => { if (e.key === 'Enter') join(); });
 
     // WebSocket 연결
     function connect() {
@@ -347,18 +392,22 @@
         statusEl.textContent = '';
         loginScreen.style.display = 'none';
         chatScreen.style.display = 'flex';
-        ws.send(JSON.stringify({ type: 'join', nickname: myNickname }));
+        ws.send(JSON.stringify({ type: 'join', nickname: myNickname, codeWords: codeInput.value.trim().split(/\s+/) }));
         msgInput.focus();
       });
 
       ws.addEventListener('message', (e) => {
         const msg = JSON.parse(e.data);
 
-        if (msg.type === 'system') {
+        if (msg.type === 'history') {
+          msg.messages.forEach(m => appendChat(m));
+        } else if (msg.type === 'system') {
           appendSystem(msg.text);
           updateUserList(msg.users);
         } else if (msg.type === 'chat') {
           appendChat(msg);
+        } else if (msg.type === 'clear') {
+          messages.innerHTML = '';
         }
       });
 
